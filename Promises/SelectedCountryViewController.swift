@@ -47,28 +47,26 @@ class SelectedCountryViewController: UIViewController {
             print("💵 unable to locate a currency for the selected coutry")
             return
         }
-        
-        firstly {
-            when(fulfilled: networker.promiseFetchCurrentExchangeRate(currencyCode: currencyCode), networker.promiseFetchCapitalCityWeather(country: country))
+
+        when(fulfilled: networker.promiseFetchCurrentExchangeRate(currencyCode: currencyCode), networker.promiseFetchCapitalCityWeather(country: country))
+        .then { exchangeRate, weather -> Promise<UIImage> in
+            self.exchangeRate = exchangeRate
+            self.weather = weather
+
+            guard let iconCode = weather.conditions.first?.iconCode else {
+                return Promise(error: NSError(domain: "app_domain", code: -1, userInfo: nil))
             }
-            .done { exchangeRate, weather in
-                self.exchangeRate = exchangeRate
-                self.weather = weather
-                
-                guard let iconCode = weather.conditions.first?.iconCode else { return }
-                firstly {
-                    self.networker.promiseFetchWeatherIcon(iconCode: iconCode)
-                    }.done { weatherImage in
-                        self.weatherIconImageView.image = weatherImage
-                    }.catch { error in
-                        print("☔️ some kind of error getting weather icon -> \(error)")
-                }
-            }.catch { error in
-                print("🗺 some kind of error in getting the data for \(String(describing: country.name)) -> \(error)")
-            }.finally {
-                self.setupExchangeRateUI()
-                self.setupWeatherUI()
-                self.activityIndicator.stopAnimating()
+
+            return self.networker.promiseFetchWeatherIcon(iconCode: iconCode)
+        }
+        .done { weatherImage in
+            self.weatherIconImageView.image = weatherImage
+        }.catch { error in
+            print("🗺 some kind of error in getting the data for \(String(describing: country.name)) -> \(error)")
+        }.finally {
+            self.setupExchangeRateUI()
+            self.setupWeatherUI()
+            self.activityIndicator.stopAnimating()
         }
     }
     
